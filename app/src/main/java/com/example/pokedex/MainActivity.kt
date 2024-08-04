@@ -14,10 +14,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+
+private var keepSplashOpened = true
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installSplashScreen().setKeepOnScreenCondition {
+            keepSplashOpened
+        }
         enableEdgeToEdge()
         setContent {
             val orientation by remember { mutableIntStateOf(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) }
@@ -28,6 +34,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.padding(innerPadding)
                 )
             }
+            keepSplashOpened = false
         }
     }
 }
