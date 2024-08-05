@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     // Coil Image
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
     // Lifecycle components
     implementation(libs.androidx.lifecycle.extensions)
     implementation(libs.androidx.lifecycle.common.java8)

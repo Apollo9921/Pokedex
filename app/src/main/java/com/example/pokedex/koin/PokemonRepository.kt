@@ -4,4 +4,5 @@ import io.ktor.client.statement.HttpResponse
 
 interface PokemonRepository {
     suspend fun getListOfPokemons(limit: Int, offset: Int): HttpResponse
+    suspend fun getPokemonByImage(url: String): HttpResponse
 }

@@ -9,4 +9,8 @@ class PokemonRepositoryImpl(
     override suspend fun getListOfPokemons(limit: Int, offset: Int): HttpResponse {
         return pokemonApi.getListOfPokemons(limit, offset)
     }
+
+    override suspend fun getPokemonByImage(url: String): HttpResponse {
+        return pokemonApi.getPokemonImage(url)
+    }
 }
