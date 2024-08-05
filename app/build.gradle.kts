@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.realm.plugin)
+    kotlin("plugin.serialization") version "1.9.23"
 }
 
 android {
