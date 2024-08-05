@@ -27,11 +27,12 @@ class HomeScreenViewModel(
     var isLoading = mutableStateOf(false)
     var isError = mutableStateOf(false)
     var isSuccess = mutableStateOf(false)
-    private var offset = mutableIntStateOf(0)
-    private var limit = mutableIntStateOf(20)
     var pokemons: Pokemons? = null
     var pokemonDetails: ArrayList<PokemonDetails> = arrayListOf()
     var message = mutableStateOf("")
+
+    private var offset = mutableIntStateOf(0)
+    private var limit = mutableIntStateOf(20)
 
     sealed class PokemonsResponse {
         data object Loading : PokemonsResponse()
@@ -53,7 +54,7 @@ class HomeScreenViewModel(
             message.value = "No internet connection"
             return
         }
-        _getPokemons.value = PokemonsResponse.Loading
+        if (pokemons == null) { _getPokemons.value = PokemonsResponse.Loading }
         viewModelScope.launch {
             val response = pokemonRepository.getListOfPokemons(limit.intValue, offset.intValue)
             if (response.status.value in 200..299) {
@@ -86,20 +87,20 @@ class HomeScreenViewModel(
                     is PokemonsResponse.Success -> {
                         isError.value = false
                         message.value = ""
+                        isLoading.value = false
+                        isSuccess.value = true
                         pokemons = it.pokemons
                     }
                 }
             }
         }
-        if (pokemons != null) {
-            getPokemonsImage()
-        }
     }
 
-    private fun getPokemonsImage() {
+    fun getPokemonsImage() {
         viewModelScope.launch {
             pokemons?.results?.forEachIndexed { index, _ ->
-                val response = pokemonRepository.getPokemonByImage(pokemons?.results?.get(index)?.url ?: "")
+                val response =
+                    pokemonRepository.getPokemonByImage(pokemons?.results?.get(index)?.url ?: "")
                 if (response.status.value in 200..299) {
                     if (pokemonDetails.isNotEmpty()) {
                         if (!pokemonDetails.contains(response.body())) {
@@ -133,7 +134,6 @@ class HomeScreenViewModel(
                         isLoading.value = false
                         isError.value = false
                         message.value = ""
-                        isSuccess.value = true
                     }
 
                     PokemonDetailsResponse.Loading -> {
