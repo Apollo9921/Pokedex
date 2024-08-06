@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -40,15 +41,10 @@ import coil.request.ImageRequest
 import com.example.pokedex.R
 import com.example.pokedex.custom.BackgroundColor
 import com.example.pokedex.custom.Black
-import com.example.pokedex.custom.TypeBlue
-import com.example.pokedex.custom.TypeBrown
-import com.example.pokedex.custom.TypeGreen
 import com.example.pokedex.custom.TypeGrey
-import com.example.pokedex.custom.TypePink
-import com.example.pokedex.custom.TypePurple
-import com.example.pokedex.custom.TypeRed
-import com.example.pokedex.custom.TypeYellow
+import com.example.pokedex.custom.Types
 import com.example.pokedex.custom.White
+import com.example.pokedex.custom.definePokemonTypes
 import com.example.pokedex.custom.mediaQueryWidth
 import com.example.pokedex.custom.normal
 import com.example.pokedex.custom.small
@@ -58,35 +54,15 @@ import com.example.pokedex.model.pokemonsList.Pokemons
 import com.example.pokedex.network.ConnectivityObserver
 import com.example.pokedex.network.NetworkConnectivityObserver
 import org.koin.androidx.compose.koinViewModel
+import java.util.Locale
 
 private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
 private lateinit var status: ConnectivityObserver.Status
 private var pokemonTypes: HashMap<Types, Color> = hashMapOf(Types.Normal to TypeGrey)
+private var pokemons: Pokemons? = null
+private var pokemonDetails = SnapshotStateList<PokemonDetails>()
 private lateinit var viewModel: HomeScreenViewModel
-
-private enum class Types {
-    Normal,
-    Fighting,
-    Flying,
-    Poison,
-    Ground,
-    Rock,
-    Bug,
-    Ghost,
-    Steel,
-    Fire,
-    Water,
-    Grass,
-    Electric,
-    Psychic,
-    Ice,
-    Dragon,
-    Dark,
-    Fairy,
-    Stellar,
-    Unknown
-}
 
 @Composable
 fun HomeScreen(navController: NavHostController) {
@@ -106,30 +82,7 @@ fun HomeScreen(navController: NavHostController) {
         GetPokemonList(navController, it)
     }
     keepSplashOpened = false
-    definePokemonTypes()
-}
-
-private fun definePokemonTypes() {
-    pokemonTypes[Types.Normal] = TypeGrey
-    pokemonTypes[Types.Fighting] = TypeBrown
-    pokemonTypes[Types.Flying] = TypeBlue
-    pokemonTypes[Types.Poison] = TypePurple
-    pokemonTypes[Types.Ground] = TypeRed
-    pokemonTypes[Types.Rock] = TypeGrey
-    pokemonTypes[Types.Bug] = TypeGreen
-    pokemonTypes[Types.Ghost] = TypePurple
-    pokemonTypes[Types.Steel] = TypeGrey
-    pokemonTypes[Types.Fire] = TypeRed
-    pokemonTypes[Types.Water] = TypeBlue
-    pokemonTypes[Types.Grass] = TypeGreen
-    pokemonTypes[Types.Electric] = TypeYellow
-    pokemonTypes[Types.Psychic] = TypePink
-    pokemonTypes[Types.Ice] = TypeBlue
-    pokemonTypes[Types.Dragon] = TypePurple
-    pokemonTypes[Types.Dark] = TypeBrown
-    pokemonTypes[Types.Fairy] = TypePink
-    pokemonTypes[Types.Stellar] = TypeYellow
-    pokemonTypes[Types.Unknown] = TypeGrey
+    definePokemonTypes(pokemonTypes)
 }
 
 @Composable
@@ -217,13 +170,10 @@ private fun GetPokemonList(navController: NavHostController, it: PaddingValues) 
         }
 
         viewModel.isSuccess.value -> {
-            DisplayPokemonList(
-                navController,
-                it,
-                viewModel.pokemons ?: return,
-                viewModel.pokemonDetails
-            )
-            if (viewModel.pokemons != null) {
+            pokemons = viewModel.pokemons
+            pokemonDetails = viewModel.pokemonDetails
+            DisplayPokemonList(navController, it)
+            if (pokemons != null) {
                 viewModel.getPokemonsImage()
             }
         }
@@ -231,12 +181,7 @@ private fun GetPokemonList(navController: NavHostController, it: PaddingValues) 
 }
 
 @Composable
-private fun DisplayPokemonList(
-    navController: NavHostController,
-    it: PaddingValues,
-    pokemons: Pokemons,
-    pokemonDetails: ArrayList<PokemonDetails>
-) {
+private fun DisplayPokemonList(navController: NavHostController, it: PaddingValues) {
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         verticalItemSpacing = 10.dp,
@@ -247,9 +192,13 @@ private fun DisplayPokemonList(
             .background(BackgroundColor)
             .padding(20.dp)
     ) {
-        items(pokemons.results.size) { index ->
+        items(pokemons?.results?.size ?: 0) { index ->
             val color = if (pokemonDetails.size > index) {
-                pokemonTypes.filter { pokemonDetails[index].types.any { type -> type.type.name == it.key.name.toLowerCase() } }
+                pokemonTypes.filter {
+                    pokemonDetails[index].types.any { type ->
+                        type.type.name == it.key.name.lowercase(Locale.ROOT)
+                    }
+                }
             } else {
                 hashMapOf(Types.Unknown to TypeGrey)
             }
@@ -275,6 +224,7 @@ private fun DisplayPokemonList(
                                 .build(),
                             contentDescription = null,
                             error = painterResource(id = R.drawable.logo),
+                            placeholder = painterResource(id = R.drawable.logo),
                             modifier = Modifier
                                 .size(
                                     if (mediaQueryWidth() <= small) {
@@ -287,11 +237,23 @@ private fun DisplayPokemonList(
                                 )
                         )
                     } else {
-                        CircularProgressIndicator(color = White)
+                        CircularProgressIndicator(
+                            color = White,
+                            modifier = Modifier
+                                .size(
+                                    if (mediaQueryWidth() <= small) {
+                                        80.dp
+                                    } else if (mediaQueryWidth() <= normal) {
+                                        130.dp
+                                    } else {
+                                        180.dp
+                                    }
+                                )
+                        )
                     }
                     Spacer(modifier = Modifier.padding(10.dp))
                     Text(
-                        text = pokemons.results[index].name,
+                        text = pokemons?.results?.get(index)?.name ?: "",
                         color = White,
                         fontSize =
                         if (mediaQueryWidth() <= small) {

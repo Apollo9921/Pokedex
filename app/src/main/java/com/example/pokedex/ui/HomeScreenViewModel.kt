@@ -2,6 +2,7 @@ package com.example.pokedex.ui
 
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pokedex.koin.PokemonRepository
@@ -28,7 +29,7 @@ class HomeScreenViewModel(
     var isError = mutableStateOf(false)
     var isSuccess = mutableStateOf(false)
     var pokemons: Pokemons? = null
-    var pokemonDetails: ArrayList<PokemonDetails> = arrayListOf()
+    var pokemonDetails = SnapshotStateList<PokemonDetails>()
     var message = mutableStateOf("")
 
     private var offset = mutableIntStateOf(0)
@@ -41,7 +42,7 @@ class HomeScreenViewModel(
     }
 
     sealed class PokemonDetailsResponse {
-        data class Success(val pokemonDetails: ArrayList<PokemonDetails>) : PokemonDetailsResponse()
+        data class Success(val pokemonDetails: SnapshotStateList<PokemonDetails>) : PokemonDetailsResponse()
         data class Error(val message: String) : PokemonDetailsResponse()
 
         data object Loading : PokemonDetailsResponse()
