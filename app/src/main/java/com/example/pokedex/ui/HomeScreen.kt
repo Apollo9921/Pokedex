@@ -7,7 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
@@ -50,7 +50,7 @@ import com.example.pokedex.custom.normal
 import com.example.pokedex.custom.small
 import com.example.pokedex.keepSplashOpened
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
-import com.example.pokedex.model.pokemonsList.Pokemons
+import com.example.pokedex.model.pokemonsList.Result
 import com.example.pokedex.network.ConnectivityObserver
 import com.example.pokedex.network.NetworkConnectivityObserver
 import org.koin.androidx.compose.koinViewModel
@@ -60,7 +60,7 @@ private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
 private lateinit var status: ConnectivityObserver.Status
 private var pokemonTypes: HashMap<Types, Color> = hashMapOf(Types.Normal to TypeGrey)
-private var pokemons: Pokemons? = null
+private var pokemonList = SnapshotStateList<Result>()
 private var pokemonDetails = SnapshotStateList<PokemonDetails>()
 private lateinit var viewModel: HomeScreenViewModel
 
@@ -73,13 +73,20 @@ fun HomeScreen(navController: NavHostController) {
     ).value
     viewModel = koinViewModel<HomeScreenViewModel>()
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp),
+        modifier = Modifier.fillMaxSize(),
         topBar = { PokemonTopAppBar() },
-        bottomBar = { }
-    ) {
-        GetPokemonList(navController, it)
+        bottomBar = { PokemonBottomAppBar() }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .padding(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = innerPadding.calculateBottomPadding()
+                )
+        ) {
+            GetPokemonList()
+            DisplayPokemonList(navController)
+        }
     }
     keepSplashOpened = false
     definePokemonTypes(pokemonTypes)
@@ -91,7 +98,7 @@ private fun PokemonTopAppBar() {
         modifier = Modifier
             .fillMaxWidth()
             .background(BackgroundColor)
-            .padding(20.dp),
+            .padding(top = 60.dp, start = 20.dp, end = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -128,15 +135,18 @@ private fun PokemonTopAppBar() {
 }
 
 @Composable
-private fun GetPokemonList(navController: NavHostController, it: PaddingValues) {
-    viewModel.getPokemons(status)
+private fun PokemonBottomAppBar() {
+
+}
+
+@Composable
+private fun GetPokemonList() {
     when {
         viewModel.isLoading.value -> {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor)
-                    .padding(it),
+                    .background(BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(
@@ -149,8 +159,7 @@ private fun GetPokemonList(navController: NavHostController, it: PaddingValues) 
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(BackgroundColor)
-                    .padding(it),
+                    .background(BackgroundColor),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -170,34 +179,39 @@ private fun GetPokemonList(navController: NavHostController, it: PaddingValues) 
         }
 
         viewModel.isSuccess.value -> {
-            pokemons = viewModel.pokemons
-            pokemonDetails = viewModel.pokemonDetails
-            DisplayPokemonList(navController, it)
-            if (pokemons != null) {
+            pokemonList.addAll(viewModel.pokemons?.results ?: emptyList())
+            if (pokemonList.last().url.isNotEmpty()) {
                 viewModel.getPokemonsImage()
+            } else {
+                pokemonList.removeLast()
             }
+        }
+
+        viewModel.isSuccessDetails.value -> {
+            pokemonDetails.add(viewModel.pokemonDetails.last())
         }
     }
 }
 
 @Composable
-private fun DisplayPokemonList(navController: NavHostController, it: PaddingValues) {
+private fun DisplayPokemonList(navController: NavHostController) {
+    val state = rememberLazyStaggeredGridState()
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
+        state = state,
         verticalItemSpacing = 10.dp,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = it,
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundColor)
             .padding(20.dp)
     ) {
-        items(pokemons?.results?.size ?: 0) { index ->
+        items(pokemonList.size) { index ->
+            val pokemonImage =
+                pokemonDetails.firstOrNull { it.name == pokemonList[index].name }
             val color = if (pokemonDetails.size > index) {
                 pokemonTypes.filter {
-                    pokemonDetails[index].types.any { type ->
-                        type.type.name == it.key.name.lowercase(Locale.ROOT)
-                    }
+                    val firstType = pokemonDetails[index].types.firstOrNull()
+                    firstType != null && firstType.type.name == it.key.name.lowercase(Locale.getDefault())
                 }
             } else {
                 hashMapOf(Types.Unknown to TypeGrey)
@@ -216,10 +230,10 @@ private fun DisplayPokemonList(navController: NavHostController, it: PaddingValu
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    if (pokemonDetails.size > index) {
+                    if (pokemonImage != null) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data(pokemonDetails[index].sprites.other.dream_world.front_default)
+                                .data(pokemonImage.sprites.other.dream_world.front_default)
                                 .decoderFactory(SvgDecoder.Factory())
                                 .build(),
                             contentDescription = null,
@@ -253,7 +267,7 @@ private fun DisplayPokemonList(navController: NavHostController, it: PaddingValu
                     }
                     Spacer(modifier = Modifier.padding(10.dp))
                     Text(
-                        text = pokemons?.results?.get(index)?.name ?: "",
+                        text = pokemonList[index].name,
                         color = White,
                         fontSize =
                         if (mediaQueryWidth() <= small) {
@@ -268,6 +282,32 @@ private fun DisplayPokemonList(navController: NavHostController, it: PaddingValu
                     )
                 }
             }
+        }
+    }
+    with(viewModel) {
+        if (state.layoutInfo.visibleItemsInfo.lastOrNull()?.index == pokemonList.size - 1 &&
+            !isPaginationInProgress.value && pokemonDetails.size >= pokemonList.size
+        ) {
+            isPaginationInProgress.value = true
+            pagination()
+        }
+    }
+
+    if (viewModel.isPaginationInProgress.value) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            CircularProgressIndicator(
+                color = Black,
+                modifier = Modifier.size(
+                    when (mediaQueryWidth()) {
+                        in 0.dp..small -> 40.dp
+                        in small..normal -> 90.dp
+                        else -> 140.dp
+                    }
+                )
+            )
         }
     }
 }

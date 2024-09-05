@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.pokedex.koin.PokemonRepository
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Pokemons
-import com.example.pokedex.network.ConnectivityObserver
 import io.ktor.client.call.body
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,17 +27,20 @@ class HomeScreenViewModel(
     var isLoading = mutableStateOf(false)
     var isError = mutableStateOf(false)
     var isSuccess = mutableStateOf(false)
+    var isSuccessDetails = mutableStateOf(false)
     var pokemons: Pokemons? = null
     var pokemonDetails = SnapshotStateList<PokemonDetails>()
     var message = mutableStateOf("")
+    var isPaginationInProgress = mutableStateOf(false)
 
     private var offset = mutableIntStateOf(0)
     private var limit = mutableIntStateOf(20)
 
     sealed class PokemonsResponse {
         data object Loading : PokemonsResponse()
-        data class Success(val pokemons: Pokemons) : PokemonsResponse()
+        data class Success(val pokemons: Pokemons?) : PokemonsResponse()
         data class Error(val message: String) : PokemonsResponse()
+        data object Finish : PokemonsResponse()
     }
 
     sealed class PokemonDetailsResponse {
@@ -48,22 +50,30 @@ class HomeScreenViewModel(
         data object Loading : PokemonDetailsResponse()
     }
 
-    fun getPokemons(status: ConnectivityObserver.Status) {
-        if (status == ConnectivityObserver.Status.Unavailable) {
-            isError.value = true
-            _getPokemons.value = PokemonsResponse.Error("No internet connection")
-            message.value = "No internet connection"
-            return
-        }
-        if (pokemons == null) { _getPokemons.value = PokemonsResponse.Loading }
+    init {
+        getPokemons()
+    }
+
+    private fun getPokemons() {
+        _getPokemons.value = PokemonsResponse.Loading
         viewModelScope.launch {
-            val response = pokemonRepository.getListOfPokemons(limit.intValue, offset.intValue)
-            if (response.status.value in 200..299) {
-                _getPokemons.value = PokemonsResponse.Success(response.body())
-            } else {
-                _getPokemons.value =
-                    PokemonsResponse.Error("Something went wrong, please try again later")
-                message.value = "Something went wrong, please try again later"
+            try {
+                val response = pokemonRepository.getListOfPokemons(limit.intValue, offset.intValue)
+                if (response.status.value in 200..299) {
+                    _getPokemons.value = PokemonsResponse.Success(response.body())
+                } else {
+                    val errorMessage = when (response.status.value) {
+                        400 -> "Bad Request"
+                        401 -> "Unauthorized"
+                        404 -> "Not Found"
+                        else -> "Something went wrong"
+                    }
+                    _getPokemons.value = PokemonsResponse.Error(errorMessage)
+                    message.value = errorMessage
+                }
+            } catch (e: Exception) {
+                _getPokemons.value = PokemonsResponse.Error("Network error: ${e.message}")
+                message.value = "Network error: ${e.message}"
             }
             getResponse()
         }
@@ -86,11 +96,19 @@ class HomeScreenViewModel(
                     }
 
                     is PokemonsResponse.Success -> {
+                        pokemons = it.pokemons
                         isError.value = false
                         message.value = ""
                         isLoading.value = false
                         isSuccess.value = true
-                        pokemons = it.pokemons
+                        isPaginationInProgress.value = false
+                    }
+
+                    PokemonsResponse.Finish -> {
+                        isLoading.value = false
+                        isError.value = false
+                        message.value = ""
+                        isSuccess.value = false
                     }
                 }
             }
@@ -98,6 +116,7 @@ class HomeScreenViewModel(
     }
 
     fun getPokemonsImage() {
+        _getPokemons.value = PokemonsResponse.Finish
         viewModelScope.launch {
             pokemons?.results?.forEachIndexed { index, _ ->
                 val response =
@@ -110,6 +129,7 @@ class HomeScreenViewModel(
                     } else {
                         pokemonDetails.add(response.body())
                     }
+                    isSuccessDetails.value = true
                 } else {
                     _getPokemonsDetails.value =
                         PokemonDetailsResponse.Error("Something went wrong, please try again later")
@@ -128,6 +148,8 @@ class HomeScreenViewModel(
                     is PokemonDetailsResponse.Error -> {
                         isLoading.value = false
                         isError.value = true
+                        isSuccess.value = false
+                        isSuccessDetails.value = false
                         message.value = it.message
                     }
 
@@ -135,14 +157,24 @@ class HomeScreenViewModel(
                         isLoading.value = false
                         isError.value = false
                         message.value = ""
+                        isSuccess.value = false
                     }
 
                     PokemonDetailsResponse.Loading -> {
                         isError.value = false
                         message.value = ""
+                        isSuccess.value = false
+                        isSuccessDetails.value = false
                     }
                 }
             }
+        }
+    }
+
+    fun pagination() {
+        viewModelScope.launch {
+            offset.intValue += 20
+            getPokemons()
         }
     }
 }
