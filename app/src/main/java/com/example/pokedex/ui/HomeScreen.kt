@@ -6,22 +6,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,26 +34,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
-import coil.decode.SvgDecoder
-import coil.request.ImageRequest
 import com.example.pokedex.R
-import com.example.pokedex.custom.BackgroundColor
-import com.example.pokedex.custom.Black
-import com.example.pokedex.custom.TypeGrey
-import com.example.pokedex.custom.Types
-import com.example.pokedex.custom.White
-import com.example.pokedex.custom.definePokemonTypes
-import com.example.pokedex.custom.mediaQueryWidth
-import com.example.pokedex.custom.normal
-import com.example.pokedex.custom.small
-import com.example.pokedex.keepSplashOpened
+import com.example.pokedex.core.BackgroundColor
+import com.example.pokedex.core.Black
+import com.example.pokedex.core.TypeGrey
+import com.example.pokedex.core.Types
+import com.example.pokedex.core.definePokemonTypes
+import com.example.pokedex.core.mediaQueryWidth
+import com.example.pokedex.core.normal
+import com.example.pokedex.core.small
+import com.example.pokedex.main.keepSplashOpened
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Result
 import com.example.pokedex.network.ConnectivityObserver
 import com.example.pokedex.network.NetworkConnectivityObserver
+import com.example.pokedex.ui.homeList.DisplayPokemonList
+import com.example.pokedex.ui.homeList.DisplayPokemonMosaicList
 import org.koin.androidx.compose.koinViewModel
-import java.util.Locale
 
 private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
@@ -63,6 +59,7 @@ private var pokemonTypes: HashMap<Types, Color> = hashMapOf(Types.Normal to Type
 private var pokemonList = SnapshotStateList<Result>()
 private var pokemonDetails = SnapshotStateList<PokemonDetails>()
 private lateinit var viewModel: HomeScreenViewModel
+private var rotateDisplayMode = mutableFloatStateOf(90f)
 
 @Composable
 fun HomeScreen(navController: NavHostController) {
@@ -72,6 +69,8 @@ fun HomeScreen(navController: NavHostController) {
         initial = ConnectivityObserver.Status.Unavailable
     ).value
     viewModel = koinViewModel<HomeScreenViewModel>()
+    val staggeredGridState = rememberLazyStaggeredGridState()
+    val state = rememberLazyListState()
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = { PokemonTopAppBar() },
@@ -85,7 +84,30 @@ fun HomeScreen(navController: NavHostController) {
                 )
         ) {
             GetPokemonList()
-            DisplayPokemonList(navController)
+            if (rotateDisplayMode.floatValue == 90f) {
+                val lastState = remember { derivedStateOf { state.firstVisibleItemIndex } }
+                DisplayPokemonMosaicList(
+                    staggeredGridState,
+                    lastState,
+                    navController,
+                    pokemonList,
+                    pokemonDetails,
+                    pokemonTypes,
+                    viewModel
+                )
+            } else {
+                val lastState =
+                    remember { derivedStateOf { staggeredGridState.firstVisibleItemIndex } }
+                DisplayPokemonList(
+                    state,
+                    lastState,
+                    navController,
+                    pokemonList,
+                    pokemonDetails,
+                    pokemonTypes,
+                    viewModel
+                )
+            }
         }
     }
     keepSplashOpened = false
@@ -128,8 +150,14 @@ private fun PokemonTopAppBar() {
                         40.dp
                     }
                 )
-                .rotate(90f)
-                .clickable { }
+                .rotate(rotateDisplayMode.floatValue)
+                .clickable {
+                    if (rotateDisplayMode.floatValue == 90f) {
+                        rotateDisplayMode.floatValue = 0f
+                    } else {
+                        rotateDisplayMode.floatValue = 90f
+                    }
+                }
         )
     }
 }
@@ -189,125 +217,6 @@ private fun GetPokemonList() {
 
         viewModel.isSuccessDetails.value -> {
             pokemonDetails.add(viewModel.pokemonDetails.last())
-        }
-    }
-}
-
-@Composable
-private fun DisplayPokemonList(navController: NavHostController) {
-    val state = rememberLazyStaggeredGridState()
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(2),
-        state = state,
-        verticalItemSpacing = 10.dp,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp)
-    ) {
-        items(pokemonList.size) { index ->
-            val pokemonImage =
-                pokemonDetails.firstOrNull { it.name == pokemonList[index].name }
-            val color = if (pokemonDetails.size > index) {
-                pokemonTypes.filter {
-                    val firstType = pokemonDetails[index].types.firstOrNull()
-                    firstType != null && firstType.type.name == it.key.name.lowercase(Locale.getDefault())
-                }
-            } else {
-                hashMapOf(Types.Unknown to TypeGrey)
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        color = color.values.first(),
-                        shape = RoundedCornerShape(20.dp)
-                    )
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    if (pokemonImage != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
-                                .data(pokemonImage.sprites.other.dream_world.front_default)
-                                .decoderFactory(SvgDecoder.Factory())
-                                .build(),
-                            contentDescription = null,
-                            error = painterResource(id = R.drawable.logo),
-                            placeholder = painterResource(id = R.drawable.logo),
-                            modifier = Modifier
-                                .size(
-                                    if (mediaQueryWidth() <= small) {
-                                        80.dp
-                                    } else if (mediaQueryWidth() <= normal) {
-                                        130.dp
-                                    } else {
-                                        180.dp
-                                    }
-                                )
-                        )
-                    } else {
-                        CircularProgressIndicator(
-                            color = White,
-                            modifier = Modifier
-                                .size(
-                                    if (mediaQueryWidth() <= small) {
-                                        80.dp
-                                    } else if (mediaQueryWidth() <= normal) {
-                                        130.dp
-                                    } else {
-                                        180.dp
-                                    }
-                                )
-                        )
-                    }
-                    Spacer(modifier = Modifier.padding(10.dp))
-                    Text(
-                        text = pokemonList[index].name,
-                        color = White,
-                        fontSize =
-                        if (mediaQueryWidth() <= small) {
-                            20.sp
-                        } else if (mediaQueryWidth() <= normal) {
-                            24.sp
-                        } else {
-                            28.sp
-                        },
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-    with(viewModel) {
-        if (state.layoutInfo.visibleItemsInfo.lastOrNull()?.index == pokemonList.size - 1 &&
-            !isPaginationInProgress.value && pokemonDetails.size >= pokemonList.size
-        ) {
-            isPaginationInProgress.value = true
-            pagination()
-        }
-    }
-
-    if (viewModel.isPaginationInProgress.value) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            CircularProgressIndicator(
-                color = Black,
-                modifier = Modifier.size(
-                    when (mediaQueryWidth()) {
-                        in 0.dp..small -> 40.dp
-                        in small..normal -> 90.dp
-                        else -> 140.dp
-                    }
-                )
-            )
         }
     }
 }
