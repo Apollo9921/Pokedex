@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -43,6 +44,7 @@ import com.example.pokedex.core.definePokemonTypes
 import com.example.pokedex.core.mediaQueryWidth
 import com.example.pokedex.core.normal
 import com.example.pokedex.core.small
+import com.example.pokedex.core.status
 import com.example.pokedex.main.keepSplashOpened
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Result
@@ -54,11 +56,11 @@ import org.koin.androidx.compose.koinViewModel
 
 private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
-private lateinit var status: ConnectivityObserver.Status
 private var pokemonTypes: HashMap<Types, Color> = hashMapOf(Types.Normal to TypeGrey)
 private var pokemonList = SnapshotStateList<Result>()
 private var pokemonDetails = SnapshotStateList<PokemonDetails>()
 private lateinit var viewModel: HomeScreenViewModel
+private var isConnected = mutableStateOf(false)
 private var rotateDisplayMode = mutableFloatStateOf(90f)
 
 @Composable
@@ -69,6 +71,10 @@ fun HomeScreen(navController: NavHostController) {
         initial = ConnectivityObserver.Status.Unavailable
     ).value
     viewModel = koinViewModel<HomeScreenViewModel>()
+    if (status == ConnectivityObserver.Status.Available && !isConnected.value) {
+        isConnected.value = true
+        viewModel.getPokemon()
+    }
     val staggeredGridState = rememberLazyStaggeredGridState()
     val state = rememberLazyListState()
     Scaffold(
@@ -207,9 +213,9 @@ private fun GetPokemonList() {
         }
 
         viewModel.isSuccess.value -> {
-            pokemonList.addAll(viewModel.pokemons?.results ?: emptyList())
+            pokemonList.addAll(viewModel.pokemon?.results ?: emptyList())
             if (pokemonList.last().url.isNotEmpty()) {
-                viewModel.getPokemonsImage()
+                viewModel.getPokemonImage()
             } else {
                 pokemonList.removeLast()
             }

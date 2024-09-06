@@ -6,9 +6,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.pokedex.network.ConnectivityObserver
 
 val small = 600.dp
 val normal = 840.dp
+lateinit var status: ConnectivityObserver.Status
 
 @Composable
 fun mediaQueryWidth(): Dp {
