@@ -1,4 +1,4 @@
-package com.example.pokedex.ui
+package com.example.pokedex.ui.home
 
 import android.content.Context
 import androidx.compose.foundation.Image
@@ -50,8 +50,8 @@ import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Result
 import com.example.pokedex.network.ConnectivityObserver
 import com.example.pokedex.network.NetworkConnectivityObserver
-import com.example.pokedex.ui.homeList.DisplayPokemonList
-import com.example.pokedex.ui.homeList.DisplayPokemonMosaicList
+import com.example.pokedex.ui.home.homeList.DisplayPokemonList
+import com.example.pokedex.ui.home.homeList.DisplayPokemonMosaicList
 import org.koin.androidx.compose.koinViewModel
 
 private lateinit var connectivityObserver: ConnectivityObserver

@@ -1,6 +1,7 @@
-package com.example.pokedex.ui.homeList
+package com.example.pokedex.ui.home.homeList
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,9 +47,12 @@ import com.example.pokedex.core.normal
 import com.example.pokedex.core.small
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Result
-import com.example.pokedex.ui.HomeScreenViewModel
+import com.example.pokedex.navigation.Destination
+import com.example.pokedex.ui.home.HomeScreenViewModel
 
 import java.util.Locale
+
+private var id = mutableIntStateOf(-1)
 
 @Composable
 fun DisplayPokemonMosaicList(
@@ -58,6 +64,7 @@ fun DisplayPokemonMosaicList(
     pokemonTypes: HashMap<Types, Color>,
     viewModel: HomeScreenViewModel
 ) {
+    val details = pokemonDetails.toSet().toMutableStateList()
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
         state = staggeredGridState,
@@ -69,10 +76,10 @@ fun DisplayPokemonMosaicList(
     ) {
         items(pokemonList.size) { index ->
             val pokemonImage =
-                pokemonDetails.firstOrNull { it.name == pokemonList[index].name }
-            val color = if (pokemonDetails.size > index) {
+                details.firstOrNull { it.name == pokemonList[index].name }
+            val color = if (details.size > index) {
                 pokemonTypes.filter {
-                    val firstType = pokemonDetails[index].types.firstOrNull()
+                    val firstType = details[index].types.firstOrNull()
                     firstType != null && firstType.type.name == it.key.name.lowercase(Locale.getDefault())
                 }
             } else {
@@ -85,7 +92,13 @@ fun DisplayPokemonMosaicList(
                         color = color.values.first(),
                         shape = RoundedCornerShape(20.dp)
                     )
-                    .padding(10.dp),
+                    .padding(10.dp)
+                    .clickable {
+                        if (details.size >= pokemonList.size) {
+                            id.intValue = index
+                            navController.navigate(Destination.Details(details[index]))
+                        }
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -148,6 +161,10 @@ fun DisplayPokemonMosaicList(
     }
     LaunchedEffect(lastState.value) {
         staggeredGridState.scrollToItem(lastState.value)
+        if (id.intValue > -1) {
+            staggeredGridState.scrollToItem(id.intValue)
+            id.intValue = -1
+        }
     }
     Pagination(staggeredGridState, null, pokemonList, viewModel)
 }
@@ -162,6 +179,7 @@ fun DisplayPokemonList(
     pokemonTypes: HashMap<Types, Color>,
     viewModel: HomeScreenViewModel
 ) {
+    val details = pokemonDetails.toSet().toMutableStateList()
     LazyColumn(
         state = state,
         modifier = Modifier
@@ -170,21 +188,21 @@ fun DisplayPokemonList(
     ) {
         items(pokemonList.size) { index ->
             val pokemonImage =
-                pokemonDetails.firstOrNull { it.name == pokemonList[index].name }
-            val color = if (pokemonDetails.size > index) {
+                details.firstOrNull { it.name == pokemonList[index].name }
+            val color = if (details.size > index) {
                 pokemonTypes.filter {
-                    val firstType = pokemonDetails[index].types.firstOrNull()
+                    val firstType = details[index].types.firstOrNull()
                     firstType != null && firstType.type.name == it.key.name.lowercase(Locale.getDefault())
                 }
             } else {
                 hashMapOf(Types.Unknown to TypeGrey)
             }
             val height =
-                if (pokemonDetails.size - 1 >= index) pokemonDetails[index].height / 10.0 else 0.0
+                if (details.size - 1 >= index) details[index].height / 10.0 else 0.0
             val weight =
-                if (pokemonDetails.size - 1 >= index) pokemonDetails[index].weight / 10.0 else 0.0
+                if (details.size - 1 >= index) details[index].weight / 10.0 else 0.0
             val type =
-                if (pokemonDetails.size - 1 >= index) pokemonDetails[index].types.firstOrNull()?.type?.name
+                if (details.size - 1 >= index) details[index].types.firstOrNull()?.type?.name
                     ?: Types.Unknown.name else Types.Unknown.name
             Box(
                 modifier = Modifier
@@ -193,7 +211,13 @@ fun DisplayPokemonList(
                         color = color.values.first(),
                         shape = RoundedCornerShape(20.dp)
                     )
-                    .padding(20.dp),
+                    .padding(20.dp)
+                    .clickable {
+                        if (details.size >= pokemonList.size) {
+                            id.intValue = index
+                            navController.navigate(Destination.Details(details[index]))
+                        }
+                    },
                 contentAlignment = Alignment.TopStart
             ) {
                 Column(
@@ -315,6 +339,10 @@ fun DisplayPokemonList(
     }
     LaunchedEffect(lastState.value) {
         state.scrollToItem(lastState.value)
+        if (id.intValue > -1) {
+            state.scrollToItem(id.intValue)
+            id.intValue = -1
+        }
     }
     Pagination(null, state, pokemonList, viewModel)
 }
