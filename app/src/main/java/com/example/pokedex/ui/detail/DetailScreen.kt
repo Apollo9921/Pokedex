@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Scaffold
@@ -31,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,6 +45,8 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.request.ImageRequest
 import com.example.pokedex.R
+import com.example.pokedex.core.Black
+import com.example.pokedex.core.Grey
 import com.example.pokedex.core.TypeGrey
 import com.example.pokedex.core.Types
 import com.example.pokedex.core.White
@@ -169,7 +175,11 @@ private fun TopDetailsBar(navHostController: NavHostController, details: Pokemon
 
 @Composable
 private fun DetailsContent(paddingValues: PaddingValues, details: PokemonDetails) {
-    val tabs = listOf("Tab 1", "Tab 2", "Tab 3")
+    val tabs = listOf(
+        stringResource(R.string.about),
+        stringResource(R.string.base_stats),
+        stringResource(R.string.moves)
+    )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
@@ -180,7 +190,10 @@ private fun DetailsContent(paddingValues: PaddingValues, details: PokemonDetails
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = paddingValues.calculateTopPadding())
+            .padding(
+                top = paddingValues.calculateTopPadding(),
+                bottom = paddingValues.calculateBottomPadding()
+            )
     ) {
         ScrollableTabRow(selectedTabIndex = pagerState.currentPage) {
             tabs.forEachIndexed { index, title ->
@@ -196,15 +209,151 @@ private fun DetailsContent(paddingValues: PaddingValues, details: PokemonDetails
         ) {
             when (pagerState.currentPage) {
                 0 -> {
-                    Text(text = "Content of Tab 1")
+                    AboutTab(details)
                 }
+
                 1 -> {
-                    Text(text = "Content of Tab 2")
+                    StatsTab(details)
                 }
+
                 2 -> {
-                    Text(text = "Content of Tab 3")
+                    MovesTab(details)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AboutTab(details: PokemonDetails) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top
+    ) {
+        val height = details.height / 10.0
+        val weight = details.weight / 10.0
+        AboutTabContent(
+            title = stringResource(R.string.abilities),
+            description = details.abilities.joinToString { it.ability.name }
+        )
+        AboutTabContent(
+            title = stringResource(id = R.string.height),
+            description = "$height m"
+        )
+        AboutTabContent(
+            title = stringResource(id = R.string.weight),
+            description = "$weight kg"
+        )
+        AboutTabContent(
+            title = stringResource(id = R.string.types),
+            description = details.types.joinToString { it.type.name }
+        )
+        AboutTabContent(
+            title = stringResource(id = R.string.base_experience),
+            description = "${details.base_experience}"
+        )
+    }
+}
+
+@Composable
+private fun AboutTabContent(title: String, description: String) {
+    val fontSize = when {
+        mediaQueryWidth() <= small -> 16.sp
+        mediaQueryWidth() <= normal -> 20.sp
+        else -> 24.sp
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            color = Grey,
+            fontWeight = FontWeight.W400,
+            fontSize = fontSize
+        )
+        Spacer(modifier = Modifier.padding(20.dp))
+        Text(
+            text = description,
+            color = Black,
+            textAlign = TextAlign.End,
+            fontWeight = FontWeight.Bold,
+            fontSize = fontSize
+        )
+    }
+    Spacer(modifier = Modifier.padding(3.dp))
+}
+
+@Composable
+private fun StatsTab(details: PokemonDetails) {
+    val fontSize = when {
+        mediaQueryWidth() <= small -> 16.sp
+        mediaQueryWidth() <= normal -> 20.sp
+        else -> 24.sp
+    }
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        horizontalAlignment = Alignment.Start,
+        verticalArrangement = Arrangement.Top
+    ) {
+        items(details.stats.size) { index ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = details.stats[index].stat.name,
+                    color = Grey,
+                    fontWeight = FontWeight.W400,
+                    fontSize = fontSize
+                )
+                Spacer(modifier = Modifier.padding(20.dp))
+                Text(
+                    text = details.stats[index].base_stat.toString(),
+                    color = Black,
+                    textAlign = TextAlign.End,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = fontSize
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovesTab(details: PokemonDetails) {
+    val fontSize = when {
+        mediaQueryWidth() <= small -> 16.sp
+        mediaQueryWidth() <= normal -> 20.sp
+        else -> 24.sp
+    }
+    val moves =
+        if (details.moves.size >= 21) {
+            details.moves.map { it.move.name }.subList(0, 21)
+        } else {
+            details.moves.map { it.move.name }
+        }
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Fixed(3),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalItemSpacing = 10.dp,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        items(moves.size) { index ->
+            Text(
+                text = details.moves[index].move.name,
+                color = Black,
+                fontWeight = FontWeight.Bold,
+                fontSize = fontSize
+            )
+            Spacer(modifier = Modifier.padding(10.dp))
         }
     }
 }

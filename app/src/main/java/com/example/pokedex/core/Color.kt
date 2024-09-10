@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 val Black = Color(0xFF000000)
 val BackgroundColor = Color(0x73FFFFFF)
 val White = Color(0xFFFFFFFF)
+val Grey = Color(0xFFAAAAAA)
 val TypeBlue = Color(0xFF0000FF)
 val TypeRed = Color(0xFFFF0000)
 val TypeGreen = Color(0xFF00FF00)
