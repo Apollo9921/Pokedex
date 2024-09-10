@@ -17,7 +17,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -49,12 +48,10 @@ import com.example.pokedex.main.keepSplashOpened
 import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.model.pokemonsList.Result
 import com.example.pokedex.network.ConnectivityObserver
-import com.example.pokedex.network.NetworkConnectivityObserver
 import com.example.pokedex.ui.home.homeList.DisplayPokemonList
 import com.example.pokedex.ui.home.homeList.DisplayPokemonMosaicList
 import org.koin.androidx.compose.koinViewModel
 
-private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
 private var pokemonTypes: HashMap<Types, Color> = hashMapOf(Types.Normal to TypeGrey)
 private var pokemonList = SnapshotStateList<Result>()
@@ -66,10 +63,6 @@ private var rotateDisplayMode = mutableFloatStateOf(90f)
 @Composable
 fun HomeScreen(navController: NavHostController) {
     applicationContext = LocalContext.current.applicationContext
-    connectivityObserver = NetworkConnectivityObserver(applicationContext ?: return)
-    status = connectivityObserver.observe().collectAsState(
-        initial = ConnectivityObserver.Status.Unavailable
-    ).value
     viewModel = koinViewModel<HomeScreenViewModel>()
     if (status == ConnectivityObserver.Status.Available && !isConnected.value) {
         isConnected.value = true
