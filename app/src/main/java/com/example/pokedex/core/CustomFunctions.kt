@@ -6,7 +6,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.pokedex.model.pokemonDetails.PokemonDetails
 import com.example.pokedex.network.ConnectivityObserver
+import java.util.Locale
 
 val small = 600.dp
 val normal = 840.dp
@@ -61,4 +63,15 @@ fun definePokemonTypes(pokemonTypes: HashMap<Types, Color>) {
     pokemonTypes[Types.Fairy] = TypePink
     pokemonTypes[Types.Stellar] = TypeYellow
     pokemonTypes[Types.Unknown] = TypeGrey
+}
+
+fun getPokemonTypeColor(type: HashMap<Types, Color>, details: PokemonDetails): Map<Types, Color> {
+    return type.filter {
+        val firstType = details.types.firstOrNull()
+        firstType != null && firstType.type.name == it.key.name.lowercase(Locale.getDefault())
+    }
+}
+
+fun getPokemonType(details: PokemonDetails): String {
+    return details.types.firstOrNull()?.type?.name ?: Types.Unknown.name
 }

@@ -90,6 +90,7 @@ dependencies {
     // Coil Image
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
+    implementation(libs.coil.gif)
     // Lifecycle components
     implementation(libs.androidx.lifecycle.extensions)
     implementation(libs.androidx.lifecycle.common.java8)
